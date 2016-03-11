@@ -202,6 +202,53 @@ namespace exafmm {
       }
       return iX;
     }
+
+    int getPeriodicKey(uint64_t i, uint64_t j) {
+      int il = getLevel(i), jl = getLevel(j);
+      i -= getOffset(il);
+      j -= getOffset(jl);
+      if (jl > il) {
+        i >>= 3 * (jl - il);
+        il = jl;
+      } else {
+        j >>= 3 * (il - jl);
+      }
+      int key = 0;
+      for (int d=2; d>=0; d--) {
+        int id = unint(i >> d), jd = unint(j >> d);
+        key *= 3;
+        key += (id <= jd) + (id < jd);
+      }
+      return key;
+    }
+
+    // Determine whether two boxes are adjacent
+    int adjl(uint64_t b, uint64_t c, int dh) {
+      if (dh == 0) {
+        if (b == c) return 0;
+        for (int i=0; i<3; i++) {
+          int diff = unint(b>>i) - unint(c>>i);
+          if (diff > 1 || diff < -1) return 0;
+        }
+      } else {
+        if (b>>(3*dh) == c) return 0;
+        for (int i=0; i<3; i++) {
+          int uB = unint(b>>i), uC = unint(c>>i);
+          int diff = (uB >> dh) - uC;
+          if (diff == 0) continue;
+          if (diff != 1 && diff != -1) return 0;
+          if (! (uB + (diff==1)  &  (1<<dh) - 1)) return 0;
+        }
+      }
+      return 1;
+    }
+    int adj(uint64_t i, uint64_t j) {
+      int il = getLevel(i), jl = getLevel(j), dh = il - jl;
+      i -= getOffset(il);
+      j -= getOffset(jl);
+      return (dh >= 0) ? adjl(i, j, dh)
+                       : adjl(j, i, -dh);
+    }
   }
 }
 #endif
