@@ -167,10 +167,13 @@ namespace exafmm {
     }
 #endif
 
+    uint64_t getOffset(int level) {
+      return ((1 << 3 * level) - 1) / 7;
+    }
+
     // Key from vector
     uint64_t getKey(int a, int b, int c, int level) {
-      uint64_t index = interleave(a, b, c);
-      return index + ((1 << 3 * level) - 1) / 7;
+      return interleave(a, b, c) + getOffset(level);
     }
     uint64_t getKey(ivec3 iX, int level) {
       return getKey(iX[0], iX[1], iX[2], level);
@@ -191,22 +194,13 @@ namespace exafmm {
 
     //! Get 3-D index from key
     ivec3 getIndex(uint64_t key) {
-      int level = -1;                                           // Initialize level
-      while( int(key) >= 0 ) {                                  // While key has level offsets to subtract
-	level++;                                                //  Increment level
-	key -= 1 << 3*level;                                    //  Subtract level offset
-      }                                                         // End while loop for level offsets
-      key += 1 << 3*level;                                      // Compensate for over-subtraction
-      level = 0;                                                // Initialize level
-      ivec3 iX = 0;                                             // Initialize 3-D index
-      int d = 0;                                                // Initialize dimension
-      while( key > 0 ) {                                        // While key has bits to shift
-	iX[d] += (key % 2) * (1 << level);                      //  Deinterleave key bits to 3-D bits
-	key >>= 1;                                              //  Shift bits in key
-	d = (d+1) % 3;                                          //  Increment dimension
-	if( d == 0 ) level++;                                   //  Increment level
-      }                                                         // End while loop for key bits to shift
-      return iX;                                                // Return 3-D index
+      int level = getLevel(key);
+      key -= getOffset(level);
+      ivec3 iX = 0;
+      for (int d=0; d<3; d++) {
+        iX[d] = unint(key >> d);
+      }
+      return iX;
     }
   }
 }
