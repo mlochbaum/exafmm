@@ -191,24 +191,8 @@ namespace exafmm {
 	countWeight(Ci, Cj, mutual, remote);                    //  Increment M2L weight
       } else if (Ci->NCHILD == 0 && Cj->NCHILD == 0) {          // Else if both cells are bodies
 #if EXAFMM_NO_P2P
-	int index = Ci->ICELL;
-	int iX[3] = {0, 0, 0};
-	int d = 0, level = 0;
-	while( index != 0 ) {
-	  iX[d] += (index % 2) * (1 << level);
-	  index >>= 1;
-	  d = (d+1) % 3;
-	  if( d == 0 ) level++;
-	}
-	index = Cj->ICELL;
-	int jX[3] = {0, 0, 0};
-	d = 0; level = 0;
-	while( index != 0 ) {
-	  jX[d] += (index % 2) * (1 << level);
-	  index >>= 1;
-	  d = (d+1) % 3;
-	  if( d == 0 ) level++;
-	}
+	int iX[3] = morton::getIndex(Ci->ICELL);
+	int jX[3] = morton::getIndex(Cj->ICELL);
 	int isNeighbor = 1;
 	for (d=0; d<3; d++) {
 	  if (kernel::Xperiodic[d] > 1e-3) jX[d] += 5;
