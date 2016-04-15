@@ -182,6 +182,18 @@ namespace exafmm {
       return getKey(iX[0], iX[1], iX[2], level);
     }
 
+    // Each of i0, i1, and i2 is a boolean. Append to the given key,
+    // increasing the level by 1.
+    uint64_t append(uint64_t key, int iX) {
+      return (key<<3) + iX + 1;
+    }
+    uint64_t append(uint64_t key, int i0, int i1, int i2) {
+      return append(key, i0 + (i1<<1) + (i2<<2));
+    }
+    uint64_t append(uint64_t key, ivec3 iX) {
+      return append(key, iX[0], iX[1], iX[2]);
+    }
+
     //! Get level from Morton key
     int getLevel(uint64_t key) {
       int level = -1;
