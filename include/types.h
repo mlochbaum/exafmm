@@ -86,6 +86,7 @@ namespace exafmm {
   //! Structure of bodies
   struct Body : public Source {
     int      IBODY;                                             //!< Initial body numbering for sorting back
+    uint64_t KEY;                                               //!< Morton key
     int      IRANK;                                             //!< Initial rank numbering for partitioning back
     int64_t  ICELL;                                             //!< Cell index   
     real_t   WEIGHT;                                            //!< Weight for partitioning
