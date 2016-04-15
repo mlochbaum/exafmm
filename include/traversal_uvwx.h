@@ -3,7 +3,11 @@
 #include "kernel.h"
 #include "logger.h"
 #include "thread.h"
+#if EXAFMM_OPTIMIZE_TREE
+#include "morton_ops.h"
+#else
 #include "morton_key.h"
+#endif
 
 #define U_LIST 0
 #define V_LIST 1
@@ -309,6 +313,154 @@ namespace exafmm {
 #else
     void writeList(Cells, int) {}
 #endif
+
+
+#if EXAFMM_OPTIMIZE_TREE
+    using namespace morton;
+  private:
+    // Constants of proportionality for kernel functions
+    const double K_P2P, K_L2L, K_M2P, K_P2L, K_M2M;
+    // Morton keys of bodies
+    uint64_t* bodies;
+    // Cost of subdivision at each depth
+    double (* costs)[21];
+
+  public:
+    void initialize_costs(double P2P, double L2L, double M2P, double P2L, double M2M) {
+      K_P2P = P2P; K_L2L = L2L; K_M2P = M2P; K_P2L = P2L; K_M2M = M2M;
+    }
+
+    void optimize_tree() {
+      int numCells = icells.size();
+      int *depth = new int [numBodies];
+      int *subdivcost = new int [numCells]; // Cost of optimal subdivision
+      for (int icell=0; icell<numCells; icell++) {
+        C_iter Ci = Ci0 + icell; Morton Mi = expandMorton(Ci); int ilast;
+        int numBodies = Ci->NBODY;
+        bodies = new uint64_t [numBodies];
+        costs = new double [numBodies][21];
+        // Initialize body keys
+        for (int iBody = 0; i < numBodies; i++) {
+          bodies[iBody] = getKey(Ci0->BODY[i]);
+        }
+        // Add all costs
+        // Traverse U and W lists
+#define ADD_LIST(LIST, L) \
+        ilast = listOffset[icell][LIST];                 \
+        while (ilast >= 0) {                             \
+          Morton Mj = expandMorton(Cj0+lists[ilast][1]); \
+          add_cost_##L(Mi, Mj, numBodies, 0);            \
+          ilast = lists[ilast][0];                       \
+        }
+        ADD_LIST(U_LIST, U); ADD_LIST(W_LIST, W);
+#undef ADD_LIST
+        // Find the optimal subdivision depth of each body in Ci and
+        // add to depth
+        int p = 0;
+        subdivcost[icell] = find_subdivision_cost(depth+Ci->ICELL, Mi.h, &p);
+        delete[] costs;
+        delete[] bodies;
+      }
+      for (int icell=0; icell<numCells; icell++) {
+        if (subdivcost<0) {
+          // TODO subdivide cell
+        }
+      }
+      delete[] depth;
+      delete[] subdivcost;
+    }
+
+  private:
+    uint64_t getKey(vec3 X, vec3 Xmin, real_t diameter) {
+      int iX[3] = {0, 0, 0};
+      for (int d=0; d<3; d++) iX[d] = int((X[d] - Xmin[d]) / diameter);
+      return morton::getKey(iX, level);
+    }
+    uint64_t getKey(Body b) {
+      return getKey(b.X, Ci0->X, Ci0->R);
+    }
+
+    /* Cost chart
+        UV      L2L - c*d*P2P
+        UW    c*M2P - c*d*P2P
+        UX    d*P2L - c*d*P2P
+        UN          - c*d*P2P
+        WV      L2L - c * M2P
+        WN          - c * M2P
+    */
+
+    void add_cost_W(Morton B, Morton D, int l, int p) {
+      add_cost_W(B, D, l, p, 0);
+    }
+    void add_cost_W(Morton B, Morton D, int l, int p, int o) {
+      int sh = (21-B.h)*3; // Amount to shift to test that p is still in B
+      do {
+        int p0=p; uint64_t pk = bodies[p]; double cost = 0;
+
+        // Find subdivision depth n and move p past corresponding box
+        uint8_t n = nonadjno(pk,B,parent(D)), dh = D.h-B.h+1;
+        n = (n < dh) ? n : dh;
+        uint8_t k = (21-n)*3; while (bodies[p]>>k == pk>>k) p++;
+
+        // Compute costs and add to cost array
+        cost -= K_M2P*(p-p0); // For both W->V and W->N
+        if (n > dh) cost += K_L2L; // For W->V only
+        costs[p][n+o] += cost;
+
+      } while (bodies[p]>>sh == B.k);
+    }
+
+    void add_cost_U(Morton B, Morton D, int l, int p) {
+      int sh = (21-B.h)*3; // Amount to shift to test that p is still in B
+      int size_D; // needs to be initialized
+      do {
+        int p0=p; uint64_t pk = bodies[p]; double cost = 0;
+
+        // Find subdivision depth n and move p past corresponding box
+        uint8_t n = nonadjno(pk,B,D);
+        uint8_t k = (21-n)*3; while (bodies[p]>>k == pk>>k) p++;
+
+        // Compute costs and add to cost array
+        cost -= K_P2P*(p-p0)*size_D; // All transitions (GPU)
+        switch(whichlist(B,D)) {
+          case V_list: { cost += K_L2L; break; }
+          case X_list: { cost += K_M2P * (p-p0); break; }
+          case W_list: { cost += K_P2L * size_D;
+                         add_cost_W(SHRINK(B,pk,n),D,l,p,n); }
+          case N_list: break;
+        }
+        costs[p][n] += cost;
+
+      } while (bodies[p]>>sh == B.k);
+    }
+
+    double find_subdivision_cost(int* depth, int d, int* p) {
+      uint64_t p0 = bodies[*p];
+      int n = (21-d)*3;
+      // q is the first body with a different Morton key than p
+      int q = *p; while (bodies[q] == p0) q++;
+      if (bodies[q]>>n == p0>>n) {
+        double cost = K_M2M + costs[*p][d];
+        do {
+          cost += find_subdivision_cost(depth, d+1, p);
+        } while (bodies[*p]>>n == p0>>n);
+        if (cost >= 0) {
+          depth[*p] = d;
+          return 0;
+        } else {
+          return cost;
+        }
+      } else {
+        double cost = 0, c = 0;
+        for (; d < MAX_DEPTH; d++) {
+          c += K_M2M + costs[*p][d];
+          if (c < cost) { depth[*p] = d; cost = c; }
+        }
+        *p = q;
+        return cost;
+      }
+    }
+#endif // EXAFMM_OPTIMIZE_TREE
   };
 }
 #endif
