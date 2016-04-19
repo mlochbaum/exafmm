@@ -58,10 +58,10 @@ namespace exafmm {
 
     // Subdivide a cell
     // Assumes bodies are all sorted by Morton key
-    void subdivide(Bodies bodies, Cells cells, int icell) {
-      B_iter B = bodies.begin();
+    void subdivide(Cells cells, int icell) {
       // Allocate enough space for 8 cells
       // We will shrink to the actual number later
+      B_iter B = cells[0].BODY;
       cells.resize(cells.size() + 8);
       C_iter C = cells.begin();
       C_iter Ci = C + icell;
@@ -73,7 +73,7 @@ namespace exafmm {
       int shift = 3 * (20 - morton::getLevel(Ci->ICELL));
       // Loop over bodies to place each in a cell
       for (int ibody = 0; ibody < Ci->NBODY; ibody++) {
-        Body Bi = bodies[Ci->IBODY + ibody];
+        Body Bi = B[Ci->IBODY + ibody];
         vec3 Xb = Bi.X;
         // If ibody is zero or Bi is not in Cj create a new cell
         int jX = (Bi.KEY >> shift) & 7;

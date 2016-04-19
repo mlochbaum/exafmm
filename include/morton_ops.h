@@ -24,6 +24,9 @@ namespace exafmm {
       M.k = m - getOffset(n);
       return M;
     }
+    Morton expandMorton(C_iter C) {
+      return expandMorton(C->ICELL);
+    }
 
     uint64_t compressMorton(Morton M) {
       // return M.k + (1<<(3*M.h));
