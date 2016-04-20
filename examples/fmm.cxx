@@ -1,11 +1,15 @@
+#define EXAFMM_COUNT_KERNEL 1
+#define EXAFMM_OPTIMIZE_TREE 1
 #include "args.h"
 #include "bound_box.h"
 #include "build_tree.h"
 #include "dataset.h"
 #include "logger.h"
-#include "traversal.h"
+#include "traversal_uvwx.h"
 #include "up_down_pass.h"
 #include "verify.h"
+#include "modify_tree.h"
+#include "sort.h"
 using namespace exafmm;
 
 int main(int argc, char ** argv) {
@@ -52,7 +56,12 @@ int main(int argc, char ** argv) {
     if (args.IneJ) {
       bounds = boundBox.getBounds(jbodies, bounds);
     }
+    logger::startTimer("Total body sort");
+    modify::init_ibody(bounds, bodies);
+    modify::sort_bodies(bodies);
+    logger::stopTimer("Total body sort");
     cells = buildTree.buildTree(bodies, buffer, bounds);
+    // modify::subdivide(bodies, cells, cells.size()-1);
     upDownPass.upwardPass(cells);
     traversal.initListCount(cells);
     traversal.initWeight(cells);
@@ -64,6 +73,7 @@ int main(int argc, char ** argv) {
       traversal.traverse(cells, cells, cycle, args.dual, args.mutual);
       jbodies = bodies;
     }
+    /*
     upDownPass.downwardPass(cells);
     logger::printTitle("Total runtime");
     logger::stopDAG();
@@ -90,15 +100,18 @@ int main(int argc, char ** argv) {
     logger::printTitle("FMM vs. direct");
     verify.print("Rel. L2 Error (pot)",std::sqrt(potDif/potNrm));
     verify.print("Rel. L2 Error (acc)",std::sqrt(accDif/accNrm));
+    */
     buildTree.printTreeData(cells);
     traversal.printTraversalData();
     logger::printPAPI();
     bodies = buffer;
     data.initTarget(bodies);
   }
+  /*
   if (args.getMatrix) {
     traversal.writeMatrix(bodies, jbodies);
   }
+  */
   logger::writeDAG();
   return 0;
 }

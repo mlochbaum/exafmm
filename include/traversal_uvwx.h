@@ -3,11 +3,8 @@
 #include "kernel.h"
 #include "logger.h"
 #include "thread.h"
-#if EXAFMM_OPTIMIZE_TREE
 #include "morton_ops.h"
-#else
-#include "morton_key.h"
-#endif
+#include "modify_tree.h"
 
 #define U_LIST 0
 #define V_LIST 1
@@ -204,11 +201,21 @@ namespace exafmm {
               kernel::Xperiodic[d] = pX[d] * cycle[d];
             }
 
+            {
+              // Verify
+              morton::Morton Mi = morton::expandMorton(Ci->ICELL);
+              morton::Morton Mj = morton::expandMorton(Cj->ICELL);
+              int t1; if (itype != (t1=morton::whichlist(Mi, Mj))) {
+                printf("Box (%d, %d) should have (%d, %d) in list %d but it is in list %d instead\n",
+                           Mi.h, Mi.k,          Mj.h, Mj.k,       t1,                itype);
+              }
+            }
+
             switch (itype) {
               case U_LIST: kernel::P2P(Ci, Cj, mutual); countKernel(numP2P); break;
               case V_LIST: kernel::M2L(Ci, Cj, mutual); countKernel(numM2L); break;
-              case W_LIST: kernel::M2P(Ci, Cj, mutual); countKernel(numM2P); break;
-              case X_LIST: kernel::P2L(Ci, Cj, mutual); countKernel(numP2L); break;
+              case W_LIST: /*kernel::M2P(Ci, Cj, mutual);*/ countKernel(numM2P); break;
+              case X_LIST: /*kernel::P2L(Ci, Cj, mutual);*/ countKernel(numP2L); break;
             }
             countList(Ci, Cj, mutual, itype);
             countWeight(Ci, Cj, mutual, remote);
@@ -272,6 +279,9 @@ namespace exafmm {
       lists = new int [(216+27)*numCells][3]();
       // Construct interaction lists
       setLists(icells);
+
+      initialize_costs(0.1, 1, 1, 1, 10);
+      optimize_tree(icells);
 
       // Perform interactions based on lists
       listBasedTraversal(numCells, cycle, mutual, remote);
@@ -365,6 +375,7 @@ namespace exafmm {
       }
       for (int icell=0; icell<numCells; icell++) {
         if (subdivcost[icell] < 0) {
+          printf("Subdivide cell %d (count %d)\n", icell, (Ci0+icell)->NBODY);
           // TODO subdivide cell
         }
       }
