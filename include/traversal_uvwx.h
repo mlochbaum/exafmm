@@ -319,15 +319,15 @@ namespace exafmm {
 #if EXAFMM_OPTIMIZE_TREE
   private:
     // Constants of proportionality for kernel functions
-    double K_P2P, K_L2L, K_M2P, K_P2L, K_M2M;
+    double K_P2P, K_M2L, K_M2P, K_P2L, K_M2M;
     // Morton keys of bodies
     uint64_t* keys;
     // Cost of subdivision at each depth
     double (* costs)[MAX_DEPTH];
 
   public:
-    void initialize_costs(double P2P, double L2L, double M2P, double P2L, double M2M) {
-      K_P2P = P2P; K_L2L = L2L; K_M2P = M2P; K_P2L = P2L; K_M2M = M2M;
+    void initialize_costs(double P2P, double M2L, double M2P, double P2L, double M2M) {
+      K_P2P = P2P; K_M2L = M2L; K_M2P = M2P; K_P2L = P2L; K_M2M = M2M;
     }
 
     void optimize_tree(Cells cells) {
@@ -374,11 +374,11 @@ namespace exafmm {
 
   private:
     /* Cost chart
-        UV      L2L - c*d*P2P
+        UV      M2L - c*d*P2P
         UW    c*M2P - c*d*P2P
         UX    d*P2L - c*d*P2P
         UN          - c*d*P2P
-        WV      L2L - c * M2P
+        WV      M2L - c * M2P
         WN          - c * M2P
     */
 
@@ -397,7 +397,7 @@ namespace exafmm {
 
         // Compute costs and add to cost array
         cost -= K_M2P*(p-p0); // For both W->V and W->N
-        if (n > dh) cost += K_L2L; // For W->V only
+        if (n > dh) cost += K_M2L; // For W->V only
         costs[p0][n+o] += cost;
 
       } while (p < end && keys[p]>>sh == B.k);
@@ -415,7 +415,7 @@ namespace exafmm {
         // Compute costs and add to cost array
         cost -= K_P2P*(p-p0)*size_D; // All transitions (GPU)
         switch(whichlist(B,D)) {
-          case V_list: { cost += K_L2L; break; }
+          case V_list: { cost += K_M2L; break; }
           case X_list: { cost += K_M2P * (p-p0); break; }
           case W_list: { cost += K_P2L * size_D;
                          add_cost_W(SHRINK(B,pk,n),D,end,p,n); }
