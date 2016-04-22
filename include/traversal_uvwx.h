@@ -348,20 +348,21 @@ namespace exafmm {
         C_iter Ci = Ci0 + icell; Morton Mi = expandMorton(Ci);
         int ilast; int numBodies = Ci->NBODY;
         if (numBodies == 0) { subdivcost[icell] = 0; continue; }
-        keys = new uint64_t [numBodies];
+        keys = new uint64_t [numBodies+1]; // Leave space for sentinel
         costs = new double [numBodies][MAX_DEPTH];
-        // Initialize body keys
+        // Initialize body keys and costs
         for (int i=0; i<numBodies; i++) {
           keys[i] = (Ci0->BODY + i)->KEY;
           for (int j=0; j<MAX_DEPTH; j++) costs[i][j]=0;
         }
+        keys[numBodies] = ~keys[numBodies-1]; // Sentinel always starts a new box
         // Add all costs
         // Traverse U and W lists
 #define ADD_LIST(LIST, L) \
         ilast = listOffset[icell][LIST];                 \
         while (ilast >= 0) {                             \
           C_iter Cj = Cj0+lists[ilast][1];               \
-          add_cost_##L(Mi, expandMorton(Cj), Cj->NBODY, numBodies, 0); \
+          add_cost_##L(Mi, expandMorton(Cj), Cj->NBODY, 0); \
           ilast = lists[ilast][0];                       \
         }
         ADD_LIST(U_LIST, U); ADD_LIST(W_LIST, W);
@@ -369,7 +370,7 @@ namespace exafmm {
         // Find the optimal subdivision depth of each body in Ci and
         // add to depth
         int p = 0;
-        subdivcost[icell] = find_subdivision_cost(depth+Ci->ICELL, Mi.h, &p, numBodies);
+        subdivcost[icell] = find_subdivision_cost(depth+Ci->ICELL, Mi.h, &p);
         delete[] costs;
         delete[] keys;
       }
@@ -393,10 +394,10 @@ namespace exafmm {
         WN          - c * M2P
     */
 
-    void add_cost_W(Morton B, Morton D, int size_D, int end, int p) {
-      add_cost_W(B, D, size_D, end, p, 0);
+    void add_cost_W(Morton B, Morton D, int size_D, int p) {
+      add_cost_W(B, D, size_D, p, 0);
     }
-    void add_cost_W(Morton B, Morton D, int size_D, int end, int p, int o) {
+    void add_cost_W(Morton B, Morton D, int size_D, int p, int o) {
       int sh = (MAX_DEPTH-B.h)*3; // Amount to shift to test that p is still in B
       do {
         int p0=p; uint64_t pk = keys[p]; double cost = 0;
@@ -404,24 +405,24 @@ namespace exafmm {
         // Find subdivision depth n and move p past corresponding box
         uint8_t n = nonadjno(pk,B,parent(D)), dh = D.h-B.h+1;
         n = (n < dh) ? n : dh;
-        uint8_t k = (MAX_DEPTH-n)*3; while (p < end && keys[p]>>k == pk>>k) p++;
+        uint8_t k = (MAX_DEPTH-n)*3; while (keys[p]>>k == pk>>k) p++;
 
         // Compute costs and add to cost array
         cost -= K_M2P*(p-p0); // For both W->V and W->N
         if (n > dh) cost += K_M2L; // For W->V only
         costs[p0][n+o] += cost;
 
-      } while (p < end && keys[p]>>sh == B.k);
+      } while (keys[p]>>sh == B.k);
     }
 
-    void add_cost_U(Morton B, Morton D, int size_D, int end, int p) {
+    void add_cost_U(Morton B, Morton D, int size_D, int p) {
       int sh = (MAX_DEPTH-B.h)*3; // Amount to shift to test that p is still in B
       do {
         int p0=p; uint64_t pk = keys[p]; double cost = 0;
 
         // Find subdivision depth n and move p past corresponding box
         uint8_t n = nonadjno(pk,B,D);
-        uint8_t k = (MAX_DEPTH-n)*3; while (p < end && keys[p]>>k == pk>>k) p++;
+        uint8_t k = (MAX_DEPTH-n)*3; while (keys[p]>>k == pk>>k) p++;
 
         // Compute costs and add to cost array
         cost -= K_P2P*(p-p0)*size_D; // All transitions (GPU)
@@ -429,24 +430,24 @@ namespace exafmm {
           case V_list: { cost += K_M2L; break; }
           case X_list: { cost += K_M2P * (p-p0); break; }
           case W_list: { cost += K_P2L * size_D;
-                         add_cost_W(SHRINK(B,pk,n),D,end,p,n); }
+                         add_cost_W(SHRINK(B,pk,n),D,p,n); }
           case N_list: break;
           default: break; // not possible
         }
         costs[p0][n] += cost;
 
-      } while (p < end && keys[p]>>sh == B.k);
+      } while (keys[p]>>sh == B.k);
     }
 
-    double find_subdivision_cost(int* depth, int d, int* p, int end) {
+    double find_subdivision_cost(int* depth, int d, int* p) {
       uint64_t p0 = keys[*p];
       int n = (MAX_DEPTH-d)*3;
       // q is the first body with a different Morton key than p
-      int q = *p; while (q < end && keys[q] == p0) q++;
-      if (q < end && keys[q]>>n == p0>>n) {
+      int q = *p; while (keys[q] == p0) q++;
+      if (keys[q]>>n == p0>>n) {
         double cost = K_M2M + costs[*p][d];
         do {
-          cost += find_subdivision_cost(depth, d+1, p, end);
+          cost += find_subdivision_cost(depth, d+1, p);
         } while (keys[*p]>>n == p0>>n);
         if (cost >= 0) {
           depth[*p] = d;
