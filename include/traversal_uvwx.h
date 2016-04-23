@@ -345,9 +345,12 @@ namespace exafmm {
       int *depth = new int [cells[0].NBODY];
       int *subdivcost = new int [numCells]; // Cost of optimal subdivision
       for (int icell=0; icell<numCells; icell++) {
-        C_iter Ci = Ci0 + icell; Morton Mi = expandMorton(Ci);
+        C_iter Ci = Ci0 + icell;
+        if (Ci->NCHILD > 0 || Ci->NBODY == 0) {
+          subdivcost[icell] = 0; continue;
+        }
+        Morton Mi = expandMorton(Ci);
         int ilast; int numBodies = Ci->NBODY;
-        if (numBodies == 0) { subdivcost[icell] = 0; continue; }
         keys = new uint64_t [numBodies+1]; // Leave space for sentinel
         costs = new double [numBodies][MAX_DEPTH];
         // Initialize body keys and costs
