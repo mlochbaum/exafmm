@@ -5,7 +5,7 @@
 namespace exafmm {
   namespace modify {
     // Initialize each body's KEY value with its Morton key
-    void init_ibody(Bounds bounds, Bodies bodies) {
+    void init_ibody(Bounds bounds, Bodies & bodies) {
       B_iter Bi0 = bodies.begin();
       real_t diam = max(bounds.Xmax - bounds.Xmin);
       vec3 Xmin = ((bounds.Xmin + bounds.Xmax) - diam) / 2;
@@ -13,7 +13,7 @@ namespace exafmm {
         B_iter Bi = Bi0 + ibody;
         vec3 X = Bi->X;
         int iX[3] = {0, 0, 0};
-        for (int d=0; d<3; d++) iX[d] = (int)((1<<21) * ((X[d] - Xmin[d]) / diam));
+        for (int d=0; d<3; d++) iX[d] = (int)(((1<<21)-1) * ((X[d] - Xmin[d]) / diam));
         Bi->KEY = morton::interleave(iX[0], iX[1], iX[2]);
       }
     }
