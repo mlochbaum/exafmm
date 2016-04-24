@@ -108,7 +108,7 @@ namespace exafmm {
           21 - FLS((uint64_t)((diff==1 ? 0 : -1) ^ uB) & ((1<<dh)-1));
         r = (hh < r) ? hh : r;
       }
-      return r - A.h;
+      return r - A.h + 1;
     }
 
     // Subdivision number of p in A with respect to B
