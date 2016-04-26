@@ -20,7 +20,7 @@ namespace exafmm {
 
     // Assume KEY has been initialized for each body.
     // Perform a radix sort on the bodies.
-    void sort_bodies(Bodies bodies) {
+    void sort_bodies(Bodies & bodies) {
       // Radix sort
       int numBodies = bodies.size();
       int *perm  = new int[numBodies]; // Final permutation
