@@ -58,16 +58,16 @@ namespace exafmm {
 
     // Subdivide a cell
     // Assumes bodies are all sorted by Morton key
-    void subdivide(Cells cells, int icell) {
+    void subdivide(Cells & cells, int icell) {
       // Allocate enough space for 8 cells
       // We will shrink to the actual number later
       B_iter B = cells[0].BODY;
-      cells.resize(cells.size() + 8);
+      int jcell = cells.size()-1; C_iter Cj; // Child cell
+      cells.resize(jcell + 9);
       C_iter C = cells.begin();
       C_iter Ci = C + icell;
       if (Ci->NCHILD) return; // Ci is already subdivided
 
-      int jcell = icell; C_iter Cj; // Child cell
       int iX; // Index of child relative to parent
       real_t Rc = Ci->R/2; // Child cell radius
       int shift = 3 * (20 - morton::getLevel(Ci->ICELL));
@@ -95,7 +95,7 @@ namespace exafmm {
         }
         Cj->NBODY++;
       }
-      cells.resize(icell+1+Ci->NCHILD);
+      cells.resize(jcell+1);
     }
   }
 }
