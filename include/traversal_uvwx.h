@@ -355,8 +355,8 @@ namespace exafmm {
         costs = new double [numBodies][MAX_DEPTH];
         // Initialize body keys and costs
         for (int i=0; i<numBodies; i++) {
-          keys[i] = (Ci0->BODY + i)->KEY;
-          for (int j=0; j<MAX_DEPTH; j++) costs[i][j]=0;
+          keys[i] = (Ci->BODY + i)->KEY;
+          for (int j=Mi.h; j<MAX_DEPTH; j++) costs[i][j]=0;
         }
         keys[numBodies] = ~keys[numBodies-1]; // Sentinel always starts a new box
         // Add all costs
@@ -365,7 +365,7 @@ namespace exafmm {
         ilast = listOffset[icell][LIST];                 \
         while (ilast >= 0) {                             \
           C_iter Cj = Cj0+lists[ilast][1];               \
-          add_cost_##L(Mi, expandMorton(Cj), Cj->NBODY, 0); \
+          if(Cj->NBODY) add_cost_##L(Mi, expandMorton(Cj), Cj->NBODY, 0, Mi.h); \
           ilast = lists[ilast][0];                       \
         }
         ADD_LIST(U_LIST, U); ADD_LIST(W_LIST, W);
@@ -373,7 +373,7 @@ namespace exafmm {
         // Find the optimal subdivision depth of each body in Ci and
         // add to depth
         int p = 0;
-        subdivcost[icell] = find_subdivision_cost(depth+Ci->ICELL, Mi.h, &p);
+        subdivcost[icell] = find_subdivision_cost(depth+Ci->IBODY, Mi.h, &p);
         delete[] costs;
         delete[] keys;
       }
@@ -397,9 +397,6 @@ namespace exafmm {
         WN          - c * M2P
     */
 
-    void add_cost_W(Morton B, Morton D, int size_D, int p) {
-      add_cost_W(B, D, size_D, p, 0);
-    }
     void add_cost_W(Morton B, Morton D, int size_D, int p, int o) {
       int sh = (MAX_DEPTH-B.h)*3; // Amount to shift to test that p is still in B
       do {
@@ -413,53 +410,54 @@ namespace exafmm {
         // Compute costs and add to cost array
         cost -= K_M2P*(p-p0); // For both W->V and W->N
         if (n > dh) cost += K_M2L; // For W->V only
-        costs[p0][n+o] += cost;
+        costs[p0][n+o-1] += cost;
 
       } while (keys[p]>>sh == B.k);
     }
 
-    void add_cost_U(Morton B, Morton D, int size_D, int p) {
+    void add_cost_U(Morton B, Morton D, int size_D, int p, int o) {
       int sh = (MAX_DEPTH-B.h)*3; // Amount to shift to test that p is still in B
       do {
         int p0=p; uint64_t pk = keys[p]; double cost = 0;
 
         // Find subdivision depth n and move p past corresponding box
         uint8_t n = nonadjno(pk,B,D);
-        uint8_t k = (MAX_DEPTH-n)*3; while (keys[p]>>k == pk>>k) p++;
+        uint8_t k = (MAX_DEPTH-n-o)*3; while (keys[p]>>k == pk>>k) p++;
 
         // Compute costs and add to cost array
         cost -= K_P2P*(p-p0)*size_D; // All transitions (GPU)
-        switch(whichlist(B,D)) {
+        switch(whichlist(SHRINK(B,pk,n),D)) {
           case V_list: { cost += K_M2L; break; }
           case X_list: { cost += K_M2P * (p-p0); break; }
           case W_list: { cost += K_P2L * size_D;
-                         add_cost_W(SHRINK(B,pk,n),D,p,n); }
+                         add_cost_W(SHRINK(B,pk,n),D,size_D,p,n+o); }
           case N_list: break;
           default: break; // not possible
         }
-        costs[p0][n] += cost;
+        costs[p0][n+o-1] += cost;
 
       } while (keys[p]>>sh == B.k);
     }
 
     double find_subdivision_cost(int* depth, int d, int* p) {
-      uint64_t p0 = keys[*p];
+      int p0 = *p; uint64_t pk = keys[p0];
       int n = (MAX_DEPTH-d)*3;
       // q is the first body with a different Morton key than p
-      int q = *p; while (keys[q] == p0) q++;
-      if (keys[q]>>n == p0>>n) {
-        double cost = K_M2M + costs[*p][d];
+      int q = *p; while (keys[q] == pk) q++;
+      if (keys[q]>>n == pk>>n) {
+        double cost = costs[*p][d];
         do {
-          cost += find_subdivision_cost(depth, d+1, p);
-        } while (keys[*p]>>n == p0>>n);
+          cost += K_M2M + find_subdivision_cost(depth, d+1, p);
+        } while (keys[*p]>>n == pk>>n);
         if (cost >= 0) {
-          depth[*p] = d;
+          depth[p0] = d;
           return 0;
         } else {
           return cost;
         }
       } else {
         double cost = 0, c = 0;
+        depth[*p] = d;
         for (; d < MAX_DEPTH; d++) {
           c += K_M2M + costs[*p][d];
           if (c < cost) { depth[*p] = d; cost = c; }
