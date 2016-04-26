@@ -282,6 +282,13 @@ namespace exafmm {
 
       initialize_costs(13.9, 99, 115, 115, 193);
       optimize_tree(icells);
+      Ci0 = icells.begin(); jcells=icells; Cj0 = jcells.begin();
+      delete[] listOffset;
+      delete[] lists;
+      numCells = icells.size();
+      listOffset = new int [numCells][4]();
+      lists = new int [(216+27)*numCells][3]();
+      setLists(icells);
 
       // Perform interactions based on lists
       listBasedTraversal(numCells, cycle, mutual, remote);
