@@ -343,7 +343,7 @@ namespace exafmm {
     void optimize_tree(Cells cells) {
       int numCells = cells.size();
       int *depth = new int [cells[0].NBODY];
-      int *subdivcost = new int [numCells]; // Cost of optimal subdivision
+      double *subdivcost = new double [numCells]; // Cost of optimal subdivision
       for (int icell=0; icell<numCells; icell++) {
         C_iter Ci = Ci0 + icell;
         if (Ci->NCHILD > 0 || Ci->NBODY == 0) {
