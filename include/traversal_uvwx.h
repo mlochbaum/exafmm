@@ -280,7 +280,7 @@ namespace exafmm {
       // Construct interaction lists
       setLists(icells);
 
-      initialize_costs(13.9, 99, 115, 115, 735);
+      initialize_costs(13.9, 99, 115, 115, 193);
       optimize_tree(icells);
 
       // Perform interactions based on lists
