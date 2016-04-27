@@ -280,7 +280,7 @@ namespace exafmm {
       // Construct interaction lists
       setLists(icells);
 
-      initialize_costs(13.9, 99, 115, 115, 193);
+      initialize_costs(27.8, 198, 230, 193);
       optimize_tree(icells);
       Ci0 = icells.begin(); jcells=icells; Cj0 = jcells.begin();
       delete[] listOffset;
@@ -336,15 +336,15 @@ namespace exafmm {
 #if EXAFMM_OPTIMIZE_TREE
   private:
     // Constants of proportionality for kernel functions
-    double K_P2P, K_M2L, K_M2P, K_P2L, K_M2M;
+    double K_P2P, K_M2L, K_M2P, K_M2M;
     // Morton keys of bodies
     uint64_t* keys;
     // Cost of subdivision at each depth
     double (* costs)[MAX_DEPTH];
 
   public:
-    void initialize_costs(double P2P, double M2L, double M2P, double P2L, double M2M) {
-      K_P2P = P2P; K_M2L = M2L; K_M2P = M2P; K_P2L = P2L; K_M2M = M2M;
+    void initialize_costs(double P2P, double M2L, double M2P, double M2M) {
+      K_P2P = P2P; K_M2L = M2L; K_M2P = M2P; K_M2M = M2M;
     }
 
     void optimize_tree(Cells cells) {
@@ -398,7 +398,7 @@ namespace exafmm {
     /* Cost chart
         UV      M2L - c*d*P2P
         UW    c*M2P - c*d*P2P
-        UX    d*P2L - c*d*P2P
+        UX    d*M2P - c*d*P2P
         UN          - c*d*P2P
         WV      M2L - c * M2P
         WN          - c * M2P
@@ -436,7 +436,7 @@ namespace exafmm {
         switch(whichlist(SHRINK(B,pk,n),D)) {
           case V_list: { cost += K_M2L; break; }
           case X_list: { cost += K_M2P * (p-p0); break; }
-          case W_list: { cost += K_P2L * size_D;
+          case W_list: { cost += K_M2P * size_D;
                          add_cost_W(SHRINK(B,pk,n),D,size_D,p,n+o); }
           case N_list: break;
           default: break; // not possible
