@@ -249,7 +249,7 @@ namespace exafmm {
           int diff = (uB >> dh) - uC;
           if (diff == 0) continue;
           if (diff != 1 && diff != -1) return 0;
-          if (! (uB + (diff==1)  &  (1<<dh) - 1)) return 0;
+          if (uB + (diff==-1)  &  (1<<dh) - 1) return 0;
         }
       }
       return 1;

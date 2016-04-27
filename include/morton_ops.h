@@ -61,7 +61,7 @@ namespace exafmm {
         int diff = (uB >> dh) - uC;
         if (diff == 0) continue;
         if (diff != 1 && diff != -1) return 0;
-        if (! (uB + (diff==1)  &  (1<<dh) - 1)) return 0;
+        if (uB + (diff==-1)  &  (1<<dh) - 1) return 0;
       }
       return 1;
     }
@@ -81,7 +81,7 @@ namespace exafmm {
 
     // Which list of B the box C is in
     char wlist(uint64_t b, uint64_t c, int dh) {
-      return collk(b, c >> dh*3) && adjk(b, c>>3, dh-1);
+      return collk(b, c >> dh*3) && adjk(c>>3, b, dh-1);
     }
     List_Name whichlist(Morton B, Morton C) {
       if (B.h == C.h) {
