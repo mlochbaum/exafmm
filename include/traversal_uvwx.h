@@ -347,10 +347,11 @@ namespace exafmm {
       K_P2P = P2P; K_M2L = M2L; K_M2P = M2P; K_M2M = M2M;
     }
 
-    void optimize_tree(Cells cells) {
+    void optimize_tree(Cells & cells) {
       int numCells = cells.size();
       int *depth = new int [cells[0].NBODY];
       double *subdivcost = new double [numCells]; // Cost of optimal subdivision
+      double min = 0; int imin = -1;
       for (int icell=0; icell<numCells; icell++) {
         C_iter Ci = Ci0 + icell;
         if (Ci->NCHILD > 0 || Ci->NBODY == 0) {
@@ -381,15 +382,17 @@ namespace exafmm {
         // add to depth
         int p = 0;
         subdivcost[icell] = find_subdivision_cost(depth+Ci->IBODY, Mi.h, &p);
+        if (subdivcost[icell] < min) { min = subdivcost[imin=icell]; }
         delete[] costs;
         delete[] keys;
       }
       for (int icell=0; icell<numCells; icell++) {
         if (subdivcost[icell] < 0) {
-          printf("Subdivide cell %d (count %d)\n", icell, (Ci0+icell)->NBODY);
+          printf("Subdivide cell %d (count %d, cost %f)\n", icell, (Ci0+icell)->NBODY, subdivcost[icell]);
           // TODO subdivide cell
         }
       }
+      modify::subdivide(cells, imin);
       delete[] depth;
       delete[] subdivcost;
     }
