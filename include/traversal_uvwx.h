@@ -419,7 +419,7 @@ namespace exafmm {
         // Compute costs and add to cost array
         cost -= K_M2P*(p-p0); // For both W->V and W->N
         if (n > dh) cost += K_M2L; // For W->V only
-        costs[p0][n+o-1] += cost;
+        costs[p0][n+o] += cost;
 
       } while (keys[p]>>sh == B.k);
     }
@@ -437,13 +437,13 @@ namespace exafmm {
         cost -= K_P2P*(p-p0)*size_D; // All transitions (GPU)
         switch(whichlist(SHRINK(B,pk,n),D)) {
           case V_list: { cost += K_M2L; break; }
-          case X_list: { cost += K_M2P * (p-p0); break; }
-          case W_list: { cost += K_M2P * size_D;
+          case X_list: { cost += K_M2P * size_D; break; }
+          case W_list: { cost += K_M2P * (p-p0);
                          add_cost_W(SHRINK(B,pk,n),D,size_D,p,n+o); }
           case N_list: break;
           default: break; // not possible
         }
-        costs[p0][n+o-1] += cost;
+        costs[p0][n+o] += cost;
 
       } while (keys[p]>>sh == B.k);
     }
@@ -453,10 +453,11 @@ namespace exafmm {
       int n = (MAX_DEPTH-d)*3;
       // q is the first body with a different Morton key than p
       int q = *p; while (keys[q] == pk) q++;
+      double cost = 0;
       if (keys[q]>>n == pk>>n) {
-        double cost = costs[*p][d];
         do {
-          cost += K_M2M + find_subdivision_cost(depth, d+1, p);
+          cost += K_M2M + costs[*p][d+1]
+                + find_subdivision_cost(depth, d+1, p);
         } while (keys[*p]>>n == pk>>n);
         if (cost >= 0) {
           depth[p0] = d;
@@ -465,9 +466,9 @@ namespace exafmm {
           return cost;
         }
       } else {
-        double cost = 0, c = 0;
+        double c = 0;
         depth[*p] = d;
-        for (; d < MAX_DEPTH; d++) {
+        for (d++; d < MAX_DEPTH; d++) {
           c += K_M2M + costs[*p][d];
           if (c < cost) { depth[*p] = d; cost = c; }
         }
