@@ -190,12 +190,13 @@ namespace exafmm {
 #endif
         for (int icell=0; icell<numCells; icell++) {
           C_iter Ci = Ci0 + icell;
-          // Last cell in list
-          int ilast = listOffset[icell][itype];
-          while (ilast >= 0) {
+          if (Ci->NBODY==0) continue;
+          for (int ilast = listOffset[icell][itype]; ilast >= 0;
+              ilast = lists[ilast][0]) {
             int jcell = lists[ilast][1];
             int periodicKey = lists[ilast][2];
             C_iter Cj = Cj0 + jcell;
+            if (Cj->NBODY==0) continue;
             ivec3 pX = getPeriodicIndex(periodicKey);
             for (int d=0; d<3; d++) {
               kernel::Xperiodic[d] = pX[d] * cycle[d];
@@ -219,8 +220,6 @@ namespace exafmm {
             }
             countList(Ci, Cj, mutual, itype);
             countWeight(Ci, Cj, mutual, remote);
-            // Move to previous cell in list
-            ilast = lists[ilast][0];
           }
         }
       }
