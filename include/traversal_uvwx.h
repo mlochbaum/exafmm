@@ -463,16 +463,31 @@ namespace exafmm {
         // Find subdivision depth n and move p past corresponding box
         uint8_t n = nonadjno(pk,B,D);
         uint8_t k = (MAX_DEPTH-n-o)*3; while (keys[p]>>k == pk>>k) p++;
+        if (B.h+n == MAX_DEPTH) continue;
 
         // Compute costs and add to cost array
         cost -= K_P2P*(p-p0)*size_D; // All transitions (GPU)
-        switch(whichlist(SHRINK(B,pk,n),D)) {
+        Morton C = SHRINK(B,pk,n);
+        /*
+        switch(whichlist(C,D)) {
           case V_list: { cost += K_M2L; break; }
           case X_list: { cost += K_M2P * size_D; break; }
           case W_list: { cost += K_M2P * (p-p0);
-                         add_cost_W(SHRINK(B,pk,n),D,size_D,p,n+o); }
+                         add_cost_W(C,D,size_D,p,n+o); }
           case N_list: break;
-          default: break; // not possible
+          default: printf("Error in add_cost_U\n"); break; // not possible
+        }
+        */
+        if (C.h >= D.h) {
+          if (C.h == D.h) // V list
+            cost += K_M2L;
+          else if (collk(D.k, C.k >> (C.h-D.h)*3)) // X list
+            cost += K_M2P * size_D;
+        } else {
+          if (wlist(C.k, D.k, D.h-C.h)) { // W list
+            cost += K_M2P * (p-p0);
+            add_cost_W(C,D,size_D,p,n+o);
+          }
         }
         costs[p0][n+o] += cost;
 
