@@ -385,15 +385,46 @@ namespace exafmm {
         delete[] costs;
         delete[] keys;
       }
-      for (int icell=0; icell<numCells; icell++) {
-        if (subdivcost[icell] < 0) {
-          printf("Subdivide cell %d (count %d, cost %f)\n", icell, (Ci0+icell)->NBODY, subdivcost[icell]);
-          // TODO subdivide cell
+      int *order = new int [numCells]; for(int i=0; i<numCells; i++) order[i]=i;
+      sort_index(subdivcost, order, numCells);
+      for (int i=0; i<numCells; i++) {
+        int icell = order[i];
+        if (subdivcost[icell] < -10000) {
+          subdivide(cells, icell, morton::getLevel(cells[icell].ICELL), depth);
+          for (int ilast = listOffset[icell][U_LIST]; ilast >= 0;
+              ilast = lists[ilast][0]) {
+            if (ilast<numCells) subdivcost[ilast] = 1;
+          }
         }
       }
-      modify::subdivide(cells, imin);
+      delete[] order;
       delete[] depth;
       delete[] subdivcost;
+    }
+    // d is the icell's current depth
+    void subdivide(Cells & cells, int icell, int d, int *depth) {
+      modify::subdivide(cells, icell);
+      int ichild = cells[icell].ICHILD;
+      for (int i=0; i<cells[icell].NCHILD; i++) {
+        int jcell = ichild + i;
+        if (depth[cells[jcell].IBODY] > d+1)
+          subdivide(cells, jcell, d+1, depth);
+      }
+    }
+    // quicksort
+    void sort_index(double *cost, int *indices, int len) {
+      if (len <= 1) return;
+      int pivot = cost[indices[len-1]];
+      int i = 0, j = 0;
+      for (; j<len-1; j++) {
+        if (cost[indices[j]] <= pivot) {
+          int t=indices[i]; indices[i]=indices[j]; indices[j]=t;
+          i++;
+        }
+      }
+      { int t=indices[i]; indices[i]=indices[j]; indices[j]=t; }
+      sort_index(cost, indices, i);
+      sort_index(cost, indices+i+1, len-i-1);
     }
 
   private:
