@@ -168,7 +168,7 @@ namespace exafmm {
 #endif
 
     uint64_t getOffset(int level) {
-      return ((1 << 3 * level) - 1) / 7;
+      return (((uint64_t)1 << 3 * level) - 1) / 7;
     }
 
     // Key from vector
@@ -196,10 +196,10 @@ namespace exafmm {
 
     //! Get level from Morton key
     int getLevel(uint64_t key) {
-      int level = -1;
-      while( int(key) >= 0 ) {
+      int level = -1; uint64_t offset = 0;
+      while(key >= offset) {
 	level++;
-	key -= 1 << 3*level;
+	offset += (uint64_t)1 << 3*level;
       }
       return level;
     }
