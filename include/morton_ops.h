@@ -100,15 +100,16 @@ namespace exafmm {
     uint8_t nonadjno(uint64_t b, Morton A, Morton C) {
       uint64_t c = C.k;
       uint8_t dh = 21 - C.h;
-      uint8_t r = 21;
+      uint8_t r = 0;
       for (int i=0; i<3; i++) {
         int uB = unint(b>>i), uC = unint(c>>i);
         int diff = (uB >> dh) - uC;
-        uint8_t hh = (diff == 0) ? 21 :
-          21 - FLS((uint64_t)((diff==1 ? 0 : -1) ^ uB) & ((1<<dh)-1));
-        r = (hh < r) ? hh : r;
+        if (diff == 0) continue; // b is in C
+        uint8_t dh1 = FLS(uB ^ (uC << dh)) - 1;
+        uint64_t d = (diff>0 ? uB : ~uB) & ((1<<dh1)-1);
+        uint8_t hh = FLS(d); if (hh > r) r = hh;
       }
-      return r - A.h + 1;
+      return (21 - r) - A.h + 1;
     }
 
     // Subdivision number of p in A with respect to B
